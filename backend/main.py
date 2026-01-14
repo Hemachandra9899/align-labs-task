@@ -1,14 +1,25 @@
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env BEFORE any other imports that rely on env
+load_dotenv(Path(__file__).with_name(".env"))
+
 import os
 import time
 import jwt
+import pathlib
+import logging
 from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, Depends, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-load_dotenv()
+from schemas import Article
+from services.gemini_service import generate_article, generate_seo, regenerate_article
+
+logger = logging.getLogger("uvicorn.error")
 
 APP_USER = os.getenv("APP_USER", "admin")
 APP_PASS = os.getenv("APP_PASS", "admin123")
@@ -17,6 +28,13 @@ JWT_EXPIRES_MIN = int(os.getenv("JWT_EXPIRES_MIN", "720"))
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
 COOKIE_NAME = "auth_token"
+
+# Jinja setup
+env = Environment(
+    loader=FileSystemLoader(str(pathlib.Path(__file__).parent / "templates")),
+    autoescape=select_autoescape(["html"]),
+)
+tpl = env.get_template("article.html.j2")
 
 app = FastAPI(title="Tool-Grounded Article Generator")
 
@@ -28,23 +46,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ---------- Schemas ----------
 class LoginIn(BaseModel):
     username: str
     password: str
+
 
 class GenerateIn(BaseModel):
     query: str
     url: Optional[str] = None
 
+
 class RegenerateIn(BaseModel):
     article_json: Dict[str, Any]
     extra_prompt: str
 
+
+# ---------- Auth helpers ----------
 def create_jwt(sub: str) -> str:
     now = int(time.time())
     exp = now + JWT_EXPIRES_MIN * 60
     payload = {"sub": sub, "iat": now, "exp": exp}
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
 
 def read_jwt(token: str) -> Dict[str, Any]:
     try:
@@ -54,6 +79,7 @@ def read_jwt(token: str) -> Dict[str, Any]:
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
 def require_auth(req: Request) -> str:
     token = req.cookies.get(COOKIE_NAME)
     if not token:
@@ -61,9 +87,12 @@ def require_auth(req: Request) -> str:
     payload = read_jwt(token)
     return payload["sub"]
 
+
+# ---------- Routes ----------
 @app.get("/health")
 def health():
     return {"ok": True}
+
 
 @app.post("/auth/login")
 def login(body: LoginIn, resp: Response):
@@ -71,75 +100,55 @@ def login(body: LoginIn, resp: Response):
         raise HTTPException(status_code=401, detail="Bad credentials")
 
     token = create_jwt(body.username)
-    # localhost frontend/backend are same-site; cookie will work with CORS credentials
     resp.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=False,      # set True if HTTPS
+        secure=False,
         samesite="lax",
         max_age=JWT_EXPIRES_MIN * 60,
         path="/",
     )
     return {"ok": True}
 
+
 @app.post("/auth/logout")
 def logout(resp: Response):
     resp.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
 
+
 @app.get("/auth/me")
 def me(user: str = Depends(require_auth)):
     return {"user": user}
 
+
 @app.post("/generate")
 def generate(body: GenerateIn, user: str = Depends(require_auth)):
-    # DAY-1 STUB: return deterministic content to unblock frontend.
-    article_json = {
-        "title": f"Article about: {body.query}",
-        "sections": [
-            {"heading": "Overview", "paragraphs": ["This is a stub article for Day 1."]},
-            {"heading": "Context", "paragraphs": [f"Optional URL: {body.url or 'None'}"]},
-        ],
-        "relevant_links": [
-            {"title": "Example link", "url": "https://example.com"}
-        ],
-    }
-    seo_json = {
-        "meta_title": f"{body.query} | Example Site",
-        "meta_description": "Stub SEO description for Day 1.",
-        "keywords": ["stub", "seo", "day1"],
-    }
-    html = f"""<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>{seo_json["meta_title"]}</title>
-  <meta name="description" content="{seo_json["meta_description"]}">
-</head>
-<body>
-  <h1>{article_json["title"]}</h1>
-  <h2>{article_json["sections"][0]["heading"]}</h2>
-  <p>{article_json["sections"][0]["paragraphs"][0]}</p>
+    if not body.query or not body.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-  <h2>Relevant Links</h2>
-  <ul>
-    <li><a href="{article_json["relevant_links"][0]["url"]}">{article_json["relevant_links"][0]["title"]}</a></li>
-  </ul>
-</body>
-</html>"""
+    try:
+        article = generate_article(body.query.strip(), body.url)
+        seo = generate_seo(article)
+        html = tpl.render(article=article.model_dump(), seo=seo.model_dump())
+        return {"html": html, "article_json": article.model_dump(), "seo_json": seo.model_dump()}
+    except Exception as e:
+        logger.exception("Generate failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    return {"article_json": article_json, "seo_json": seo_json, "html": html}
 
 @app.post("/regenerate")
-def regenerate(body: RegenerateIn, user: str = Depends(require_auth)):
-    # DAY-1 STUB: just annotate existing article with extra prompt.
-    new_article = dict(body.article_json)
-    new_article["regenerated_with"] = body.extra_prompt
-    seo_json = {
-        "meta_title": f'{new_article.get("title", "Article")} (regen)',
-        "meta_description": f"Regenerated with: {body.extra_prompt}",
-        "keywords": ["regen"],
-    }
-    html = f"<html><body><h1>{new_article.get('title','Article')}</h1><p>Regenerated with: {body.extra_prompt}</p></body></html>"
-    return {"article_json": new_article, "seo_json": seo_json, "html": html}
+def regen(body: RegenerateIn, user: str = Depends(require_auth)):
+    if not body.extra_prompt or not body.extra_prompt.strip():
+        raise HTTPException(status_code=400, detail="extra_prompt cannot be empty")
+
+    try:
+        existing = Article.model_validate(body.article_json)
+        new_article = regenerate_article(existing, body.extra_prompt.strip())
+        seo = generate_seo(new_article)
+        html = tpl.render(article=new_article.model_dump(), seo=seo.model_dump())
+        return {"html": html, "article_json": new_article.model_dump(), "seo_json": seo.model_dump()}
+    except Exception as e:
+        logger.exception("Regenerate failed")
+        raise HTTPException(status_code=500, detail=str(e))
