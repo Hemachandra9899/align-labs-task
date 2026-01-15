@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.tsx";
 import AppPage from "./pages/AppPage.tsx";
 import { apiGet } from "./api";
-import "./index.css";
+
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const [ok, setOk] = React.useState<boolean | null>(null);

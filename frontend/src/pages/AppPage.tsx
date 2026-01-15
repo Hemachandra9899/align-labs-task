@@ -1,9 +1,12 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { apiPost } from "../api";
 
 type Tab = "preview" | "seo" | "article";
 
 export default function AppPage() {
+  const nav = useNavigate();
+
   const [query, setQuery] = React.useState("");
   const [url, setUrl] = React.useState("");
   const [html, setHtml] = React.useState<string>("");
@@ -16,6 +19,7 @@ export default function AppPage() {
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [regenLoading, setRegenLoading] = React.useState(false);
+  const [logoutLoading, setLogoutLoading] = React.useState(false);
 
   const canGenerate = query.trim().length > 0 && !loading;
   const canRegen = !!article && extraPrompt.trim().length > 0 && !regenLoading;
@@ -24,7 +28,10 @@ export default function AppPage() {
     setErr(null);
     setLoading(true);
     try {
-      const out = await apiPost("/generate", { query: query.trim(), url: url.trim() ? url.trim() : null });
+      const out = await apiPost("/generate", {
+        query: query.trim(),
+        url: url.trim() ? url.trim() : null,
+      });
       setHtml(out.html || "");
       setSeo(out.seo_json || null);
       setArticle(out.article_json || null);
@@ -40,7 +47,10 @@ export default function AppPage() {
     setErr(null);
     setRegenLoading(true);
     try {
-      const out = await apiPost("/regenerate", { article_json: article, extra_prompt: extraPrompt.trim() });
+      const out = await apiPost("/regenerate", {
+        article_json: article,
+        extra_prompt: extraPrompt.trim(),
+      });
       setHtml(out.html || "");
       setSeo(out.seo_json || null);
       setArticle(out.article_json || null);
@@ -49,6 +59,20 @@ export default function AppPage() {
       setErr(typeof e?.message === "string" ? e.message : "Regenerate failed");
     } finally {
       setRegenLoading(false);
+    }
+  }
+
+  async function logout() {
+    setErr(null);
+    setLogoutLoading(true);
+    try {
+      // backend should clear cookie/token
+      await apiPost("/auth/logout", {});
+    } catch {
+      // even if backend fails, still redirect client-side
+    } finally {
+      setLogoutLoading(false);
+      nav("/", { replace: true });
     }
   }
 
@@ -78,7 +102,9 @@ export default function AppPage() {
           <div style={styles.logo}>A</div>
           <div>
             <div style={styles.h1}>Content Generator</div>
-            <div style={styles.sub}>Tool-grounded articles • SEO • HTML export</div>
+            <div style={styles.sub}>
+              Tool-grounded articles • SEO • HTML export
+            </div>
           </div>
         </div>
 
@@ -100,12 +126,36 @@ export default function AppPage() {
             Clear
           </button>
 
-          <button onClick={downloadHtml} style={{ ...styles.ghostBtn, ...(html ? {} : styles.ghostDisabled) }} disabled={!html}>
+          <button
+            onClick={downloadHtml}
+            style={{ ...styles.ghostBtn, ...(html ? {} : styles.ghostDisabled) }}
+            disabled={!html}
+          >
             Download HTML
           </button>
 
-          <button onClick={generate} disabled={!canGenerate} style={{ ...styles.primaryBtn, ...(canGenerate ? {} : styles.primaryDisabled) }}>
+          <button
+            onClick={generate}
+            disabled={!canGenerate}
+            style={{
+              ...styles.primaryBtn,
+              ...(canGenerate ? {} : styles.primaryDisabled),
+            }}
+          >
             {loading ? "Generating…" : "Generate"}
+          </button>
+
+          {/* ✅ LOGOUT */}
+          <button
+            onClick={logout}
+            disabled={logoutLoading}
+            style={{
+              ...styles.dangerBtn,
+              ...(logoutLoading ? styles.dangerDisabled : {}),
+            }}
+            title="Logout"
+          >
+            {logoutLoading ? "Logging out…" : "Logout"}
           </button>
         </div>
       </div>
@@ -151,7 +201,10 @@ export default function AppPage() {
               <button
                 onClick={generate}
                 disabled={!canGenerate}
-                style={{ ...styles.primaryBtnWide, ...(canGenerate ? {} : styles.primaryDisabled) }}
+                style={{
+                  ...styles.primaryBtnWide,
+                  ...(canGenerate ? {} : styles.primaryDisabled),
+                }}
               >
                 {loading ? "Generating…" : "Generate article"}
               </button>
@@ -169,7 +222,8 @@ export default function AppPage() {
             </div>
 
             <div style={styles.smallHint}>
-              Uses <span style={styles.pill}>Google Search grounding</span> and optional <span style={styles.pill}>URL context</span>.
+              Uses <span style={styles.pill}>Google Search grounding</span> and
+              optional <span style={styles.pill}>URL context</span>.
             </div>
           </div>
 
@@ -192,33 +246,57 @@ export default function AppPage() {
             <button
               onClick={regenerate}
               disabled={!canRegen}
-              style={{ ...styles.secondaryBtn, ...(canRegen ? {} : styles.secondaryDisabled) }}
+              style={{
+                ...styles.secondaryBtn,
+                ...(canRegen ? {} : styles.secondaryDisabled),
+              }}
             >
               {regenLoading ? "Regenerating…" : "Regenerate"}
             </button>
 
-            {!article && <div style={styles.smallHint}>Generate once first to enable regeneration.</div>}
+            {!article && (
+              <div style={styles.smallHint}>
+                Generate once first to enable regeneration.
+              </div>
+            )}
           </div>
         </div>
 
         {/* RIGHT: Output */}
         <div style={styles.rightCol}>
           <div style={styles.card}>
-
             <div style={styles.tabs}>
-              <TabBtn active={tab === "preview"} onClick={() => setTab("preview")} label="Preview" />
-              <TabBtn active={tab === "seo"} onClick={() => setTab("seo")} label="SEO JSON" />
-              <TabBtn active={tab === "article"} onClick={() => setTab("article")} label="Article JSON" />
+              <TabBtn
+                active={tab === "preview"}
+                onClick={() => setTab("preview")}
+                label="Preview"
+              />
+              <TabBtn
+                active={tab === "seo"}
+                onClick={() => setTab("seo")}
+                label="SEO JSON"
+              />
+              <TabBtn
+                active={tab === "article"}
+                onClick={() => setTab("article")}
+                label="Article JSON"
+              />
 
               <div style={{ flex: 1 }} />
 
               {tab === "seo" && seo && (
-                <button onClick={() => copy(JSON.stringify(seo, null, 2))} style={styles.ghostBtnSmall}>
+                <button
+                  onClick={() => copy(JSON.stringify(seo, null, 2))}
+                  style={styles.ghostBtnSmall}
+                >
                   Copy
                 </button>
               )}
               {tab === "article" && article && (
-                <button onClick={() => copy(JSON.stringify(article, null, 2))} style={styles.ghostBtnSmall}>
+                <button
+                  onClick={() => copy(JSON.stringify(article, null, 2))}
+                  style={styles.ghostBtnSmall}
+                >
                   Copy
                 </button>
               )}
@@ -227,7 +305,9 @@ export default function AppPage() {
             {!hasResult && (
               <div style={styles.empty}>
                 <div style={styles.emptyTitle}>No output yet</div>
-                <div style={styles.emptySub}>Enter a query and click <b>Generate</b>.</div>
+                <div style={styles.emptySub}>
+                  Enter a query and click <b>Generate</b>.
+                </div>
               </div>
             )}
 
@@ -241,25 +321,38 @@ export default function AppPage() {
                   <button
                     onClick={() => copy(html)}
                     disabled={!html}
-                    style={{ ...styles.ghostBtnSmall, ...(html ? {} : styles.ghostDisabled) }}
+                    style={{
+                      ...styles.ghostBtnSmall,
+                      ...(html ? {} : styles.ghostDisabled),
+                    }}
                   >
                     Copy HTML
                   </button>
                 </div>
 
                 <div style={styles.previewFrame}>
-                  {/* keep it safe-ish visually */}
-                  <div style={styles.previewInner} dangerouslySetInnerHTML={{ __html: html }} />
+                  <div
+                    style={styles.previewInner}
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
                 </div>
               </div>
             )}
 
             {hasResult && tab === "seo" && (
-              <JsonPanel title="SEO JSON" data={seo} onCopy={() => copy(JSON.stringify(seo, null, 2))} />
+              <JsonPanel
+                title="SEO JSON"
+                data={seo}
+                onCopy={() => copy(JSON.stringify(seo, null, 2))}
+              />
             )}
 
             {hasResult && tab === "article" && (
-              <JsonPanel title="Article JSON" data={article} onCopy={() => copy(JSON.stringify(article, null, 2))} />
+              <JsonPanel
+                title="Article JSON"
+                data={article}
+                onCopy={() => copy(JSON.stringify(article, null, 2))}
+              />
             )}
           </div>
         </div>
@@ -268,15 +361,34 @@ export default function AppPage() {
   );
 }
 
-function TabBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function TabBtn({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
   return (
-    <button onClick={onClick} style={{ ...styles.tabBtn, ...(active ? styles.tabActive : {}) }}>
+    <button
+      onClick={onClick}
+      style={{ ...styles.tabBtn, ...(active ? styles.tabActive : {}) }}
+    >
       {label}
     </button>
   );
 }
 
-function JsonPanel({ title, data, onCopy }: { title: string; data: any; onCopy: () => void }) {
+function JsonPanel({
+  title,
+  data,
+  onCopy,
+}: {
+  title: string;
+  data: any;
+  onCopy: () => void;
+}) {
   return (
     <div style={styles.jsonWrap}>
       <div style={styles.jsonTop}>
@@ -285,7 +397,9 @@ function JsonPanel({ title, data, onCopy }: { title: string; data: any; onCopy: 
           Copy
         </button>
       </div>
-      <pre style={styles.pre}>{data ? JSON.stringify(data, null, 2) : "No data"}</pre>
+      <pre style={styles.pre}>
+        {data ? JSON.stringify(data, null, 2) : "No data"}
+      </pre>
     </div>
   );
 }
@@ -299,6 +413,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#e5e7eb",
     fontFamily:
       'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
+    boxSizing: "border-box",
   },
   header: {
     display: "flex",
@@ -323,7 +438,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   h1: { fontSize: 18, fontWeight: 800, letterSpacing: -0.2 },
   sub: { fontSize: 13, opacity: 0.8, marginTop: 2 },
-  headerActions: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+  headerActions: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
 
   grid: {
     maxWidth: 1200,
@@ -343,8 +463,14 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
     backdropFilter: "blur(10px)",
     minWidth: 0,
+    boxSizing: "border-box",
   },
-  cardTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  cardTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   cardTitle: { fontSize: 14, fontWeight: 800, letterSpacing: 0.2 },
   badge: {
     fontSize: 12,
@@ -364,10 +490,13 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.85,
   },
 
-  label: { display: "grid", gap: 6, marginBottom: 10 },
+  label: { display: "grid", gap: 6, marginBottom: 10, width: "100%" },
   labelText: { fontSize: 12, fontWeight: 700, opacity: 0.9 },
+
+  // ✅ FIX: boxSizing so inputs never overflow
   input: {
     width: "100%",
+    boxSizing: "border-box",
     padding: "12px 12px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
@@ -375,9 +504,11 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#e5e7eb",
     outline: "none",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+    display: "block",
   },
   textarea: {
     width: "100%",
+    boxSizing: "border-box",
     padding: "12px 12px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
@@ -386,9 +517,16 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
     resize: "vertical",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+    display: "block",
   },
 
-  row: { display: "flex", gap: 10, alignItems: "center", marginTop: 4, flexWrap: "wrap" },
+  row: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 4,
+    flexWrap: "wrap",
+  },
 
   primaryBtn: {
     borderRadius: 12,
@@ -399,6 +537,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#0b1020",
     background: "linear-gradient(135deg, #93c5fd, #c4b5fd)",
     boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
+    boxSizing: "border-box",
   },
   primaryBtnWide: {
     borderRadius: 12,
@@ -411,6 +550,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
     flex: "1 1 auto",
     minWidth: 180,
+    boxSizing: "border-box",
   },
   primaryDisabled: { opacity: 0.6, cursor: "not-allowed" },
 
@@ -422,6 +562,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     color: "#e5e7eb",
     background: "rgba(255,255,255,0.06)",
+    boxSizing: "border-box",
   },
   secondaryDisabled: { opacity: 0.6, cursor: "not-allowed" },
 
@@ -433,6 +574,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: "#e5e7eb",
     background: "rgba(255,255,255,0.06)",
+    boxSizing: "border-box",
   },
   ghostBtnSmall: {
     borderRadius: 10,
@@ -443,10 +585,29 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "#e5e7eb",
     background: "rgba(255,255,255,0.06)",
+    boxSizing: "border-box",
   },
   ghostDisabled: { opacity: 0.6, cursor: "not-allowed" },
 
-  smallHint: { marginTop: 10, fontSize: 12, opacity: 0.75, lineHeight: 1.4 },
+  // ✅ Logout button styles
+  dangerBtn: {
+    borderRadius: 12,
+    padding: "10px 12px",
+    border: "1px solid rgba(248,113,113,0.35)",
+    cursor: "pointer",
+    fontWeight: 900,
+    color: "#fee2e2",
+    background: "rgba(248,113,113,0.14)",
+    boxSizing: "border-box",
+  },
+  dangerDisabled: { opacity: 0.6, cursor: "not-allowed" },
+
+  smallHint: {
+    marginTop: 10,
+    fontSize: 12,
+    opacity: 0.75,
+    lineHeight: 1.4,
+  },
   pill: {
     display: "inline-block",
     padding: "2px 8px",
@@ -464,6 +625,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 12,
     background: "rgba(220, 38, 38, 0.15)",
     border: "1px solid rgba(220, 38, 38, 0.35)",
+    boxSizing: "border-box",
   },
   errorTitle: { fontWeight: 900, fontSize: 13, marginBottom: 4 },
   errorMsg: { fontSize: 12, opacity: 0.9, whiteSpace: "pre-wrap" },
@@ -486,6 +648,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "#e5e7eb",
     background: "rgba(255,255,255,0.06)",
+    boxSizing: "border-box",
   },
   tabActive: {
     color: "#0b1020",
@@ -511,7 +674,14 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     gap: 10,
   },
-  previewMeta: { display: "flex", alignItems: "center", gap: 10, opacity: 0.85, fontSize: 12, fontWeight: 800 },
+  previewMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    opacity: 0.85,
+    fontSize: 12,
+    fontWeight: 800,
+  },
   dot: {
     width: 8,
     height: 8,

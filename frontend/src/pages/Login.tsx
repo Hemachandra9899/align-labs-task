@@ -92,7 +92,11 @@ export default function Login() {
               </div>
             </label>
 
-            <button type="submit" disabled={disabled} style={{ ...styles.btn, ...(disabled ? styles.btnDisabled : {}) }}>
+            <button
+              type="submit"
+              disabled={disabled}
+              style={{ ...styles.btn, ...(disabled ? styles.btnDisabled : {}) }}
+            >
               {loading ? "Signing in…" : "Sign in"}
             </button>
 
@@ -119,11 +123,14 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 20,
     position: "relative",
     overflow: "hidden",
-    background: "radial-gradient(1200px 800px at 20% 10%, #1d4ed8 0%, transparent 55%), radial-gradient(1000px 700px at 90% 30%, #7c3aed 0%, transparent 55%), #0b1020",
+    background:
+      "radial-gradient(1200px 800px at 20% 10%, #1d4ed8 0%, transparent 55%), radial-gradient(1000px 700px at 90% 30%, #7c3aed 0%, transparent 55%), #0b1020",
     color: "#e5e7eb",
     fontFamily:
       'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
+    boxSizing: "border-box",
   },
+
   bgGlow: {
     position: "absolute",
     inset: 0,
@@ -131,18 +138,24 @@ const styles: Record<string, React.CSSProperties> = {
       "radial-gradient(500px 260px at 50% 15%, rgba(255,255,255,0.08), transparent 60%)",
     pointerEvents: "none",
   },
+
   shell: {
     width: "100%",
     maxWidth: 520,
     position: "relative",
     zIndex: 1,
+    boxSizing: "border-box",
   },
+
   brand: {
     display: "flex",
     gap: 12,
     alignItems: "center",
     marginBottom: 14,
+    width: "100%",
+    boxSizing: "border-box",
   },
+
   logo: {
     width: 44,
     height: 44,
@@ -154,7 +167,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#0b1020",
     background: "linear-gradient(135deg, #93c5fd, #c4b5fd)",
     boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+    flex: "0 0 auto",
+    boxSizing: "border-box",
   },
+
   title: { fontSize: 18, fontWeight: 700, lineHeight: 1.2 },
   subtitle: { fontSize: 13, opacity: 0.8, marginTop: 2 },
 
@@ -165,7 +181,10 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.12)",
     boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
     backdropFilter: "blur(10px)",
+    width: "100%",
+    boxSizing: "border-box",
   },
+
   cardHeader: { marginBottom: 14 },
   h2: { margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: -0.3 },
   p: { margin: "6px 0 0 0", fontSize: 13, opacity: 0.85 },
@@ -176,15 +195,31 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(220, 38, 38, 0.15)",
     border: "1px solid rgba(220, 38, 38, 0.35)",
     marginBottom: 12,
+    width: "100%",
+    boxSizing: "border-box",
   },
   errorTitle: { fontWeight: 700, fontSize: 13, marginBottom: 4 },
   errorMsg: { fontSize: 12, opacity: 0.9, whiteSpace: "pre-wrap" },
 
-  form: { display: "grid", gap: 12 },
-  label: { display: "grid", gap: 6 },
+  form: {
+    display: "grid",
+    gap: 12,
+    width: "100%",
+    boxSizing: "border-box",
+  },
+
+  label: {
+    display: "grid",
+    gap: 6,
+    width: "100%",
+    boxSizing: "border-box",
+  },
+
   labelText: { fontSize: 12, fontWeight: 600, opacity: 0.9 },
+
   input: {
     width: "100%",
+    boxSizing: "border-box", // ✅ FIX: prevents overflow with padding/border
     padding: "12px 12px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
@@ -192,8 +227,15 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#e5e7eb",
     outline: "none",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+    display: "block",
   },
-  passwordRow: { position: "relative" },
+
+  passwordRow: {
+    position: "relative",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+
   ghostBtn: {
     position: "absolute",
     right: 8,
@@ -207,10 +249,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: 12,
     fontWeight: 600,
+    boxSizing: "border-box",
   },
+
   btn: {
     marginTop: 4,
     width: "100%",
+    boxSizing: "border-box",
     borderRadius: 12,
     padding: "12px 14px",
     border: "none",
@@ -220,11 +265,14 @@ const styles: Record<string, React.CSSProperties> = {
     background: "linear-gradient(135deg, #93c5fd, #c4b5fd)",
     boxShadow: "0 14px 34px rgba(0,0,0,0.35)",
   },
+
   btnDisabled: {
     opacity: 0.6,
     cursor: "not-allowed",
   },
+
   footerHint: { marginTop: 6, fontSize: 12, opacity: 0.75 },
+
   code: {
     fontFamily:
       'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
@@ -234,6 +282,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(255,255,255,0.08)",
     border: "1px solid rgba(255,255,255,0.12)",
   },
+
   bottomNote: {
     display: "flex",
     alignItems: "center",
@@ -242,7 +291,10 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 12,
     opacity: 0.75,
     fontSize: 12,
+    width: "100%",
+    boxSizing: "border-box",
   },
+
   dot: {
     width: 8,
     height: 8,
